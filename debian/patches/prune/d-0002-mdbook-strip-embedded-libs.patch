@@ -9,13 +9,13 @@ in debian/rust-doc.links
 Forwarded: not-needed
 ---
  src/tools/linkchecker/main.rs                      | 28 ++++++++++-
- .../front-end/templates/index.hbs                  | 26 +----------
+ .../front-end/templates/index.hbs                  | 26 +---------
  .../front-end/templates/toc.html.hbs               |  4 +-
  .../src/html_handlebars/search.rs                  |  2 -
- .../src/html_handlebars/static_files.rs            | 54 ++++++++--------------
- vendor/mdbook-html-0.5.2/src/theme/mod.rs          | 22 ---------
+ .../src/html_handlebars/static_files.rs            | 55 ++++++++--------------
+ vendor/mdbook-html-0.5.2/src/theme/mod.rs          | 33 -------------
  vendor/mdbook-html-0.5.2/src/theme/searcher.rs     |  3 --
- 7 files changed, 50 insertions(+), 89 deletions(-)
+ 7 files changed, 50 insertions(+), 101 deletions(-)
 
 diff --git a/src/tools/linkchecker/main.rs b/src/tools/linkchecker/main.rs
 index e07a078..4414dd9 100644
@@ -151,19 +151,26 @@ index 09920d7..77aa29c 100644
      }
  
 diff --git a/vendor/mdbook-html-0.5.2/src/html_handlebars/static_files.rs b/vendor/mdbook-html-0.5.2/src/html_handlebars/static_files.rs
-index e0415cb..7b67445 100644
+index e0415cb..0d93d7d 100644
 --- a/vendor/mdbook-html-0.5.2/src/html_handlebars/static_files.rs
 +++ b/vendor/mdbook-html-0.5.2/src/html_handlebars/static_files.rs
-@@ -8,6 +8,8 @@ use mdbook_core::static_regex;
+@@ -1,13 +1,14 @@
+ //! Support for writing static files.
+ 
+ use super::helpers::resources::ResourceHelper;
+-use crate::theme::{self, Theme, playground_editor};
++use crate::theme::{self, Theme};
+ use anyhow::{Context, Result};
+ use mdbook_core::config::HtmlConfig;
+ use mdbook_core::static_regex;
  use mdbook_core::utils::fs;
  use std::borrow::Cow;
  use std::collections::HashMap;
-+use std::fs::{self, File};
 +use std::os::unix::fs::symlink;
  use std::path::{Path, PathBuf};
  use tracing::debug;
  
-@@ -56,43 +58,8 @@ impl StaticFiles {
+@@ -56,43 +57,8 @@ impl StaticFiles {
          if let Some(contents) = &theme.favicon_svg {
              this.add_builtin("favicon.svg", contents);
          }
@@ -207,7 +214,7 @@ index e0415cb..7b67445 100644
  
          let custom_files = html_config
              .additional_css
-@@ -256,6 +223,23 @@ impl StaticFiles {
+@@ -256,6 +222,23 @@ impl StaticFiles {
                  }
              }
          }
@@ -232,7 +239,7 @@ index e0415cb..7b67445 100644
          Ok(ResourceHelper { hash_map })
      }
 diff --git a/vendor/mdbook-html-0.5.2/src/theme/mod.rs b/vendor/mdbook-html-0.5.2/src/theme/mod.rs
-index c55a30e..f3235cf 100644
+index c55a30e..86d32c0 100644
 --- a/vendor/mdbook-html-0.5.2/src/theme/mod.rs
 +++ b/vendor/mdbook-html-0.5.2/src/theme/mod.rs
 @@ -6,8 +6,6 @@ use mdbook_core::utils::fs;
@@ -287,7 +294,25 @@ index c55a30e..f3235cf 100644
          fs::write(themedir.join("index.hbs"), INDEX)?;
  
          let cssdir = themedir.join("css");
-@@ -215,11 +202,8 @@ impl Default for Theme {
+@@ -182,17 +169,6 @@ impl Theme {
+             fs::write(cssdir.join("print.css"), PRINT_CSS)?;
+         }
+ 
+-        fs::write(themedir.join("fonts").join("fonts.css"), fonts::CSS)?;
+-        for (file_name, contents) in fonts::LICENSES {
+-            fs::write(themedir.join(file_name), contents)?;
+-        }
+-        for (file_name, contents) in fonts::OPEN_SANS.iter() {
+-            fs::write(themedir.join(file_name), contents)?;
+-        }
+-        fs::write(
+-            themedir.join(fonts::SOURCE_CODE_PRO.0),
+-            fonts::SOURCE_CODE_PRO.1,
+-        )?;
+         Ok(())
+     }
+ }
+@@ -215,11 +191,8 @@ impl Default for Theme {
              favicon_png: Some(FAVICON_PNG.to_owned()),
              favicon_svg: Some(FAVICON_SVG.to_owned()),
              js: JS.to_owned(),
@@ -299,7 +324,7 @@ index c55a30e..f3235cf 100644
          }
      }
  }
-@@ -272,11 +256,8 @@ mod tests {
+@@ -272,11 +245,8 @@ mod tests {
              "css/variables.css",
              "fonts/fonts.css",
              "book.js",
@@ -311,7 +336,7 @@ index c55a30e..f3235cf 100644
          ];
  
          let temp = TempFileBuilder::new().prefix("mdbook-").tempdir().unwrap();
-@@ -306,11 +287,8 @@ mod tests {
+@@ -306,11 +276,8 @@ mod tests {
              favicon_png: Some(Vec::new()),
              favicon_svg: Some(Vec::new()),
              js: Vec::new(),
