@@ -47,3 +47,4 @@ build/disable-bootstrap-tests-that-don-t-work-from-tarball-sour.patch
 behaviour/x32-set-panic-strategy-to-aborting.patch
 prune/d-0024-remove-sqlite-wasm-rs.patch
 prune/d-0025-remove-reference-to-CodeView.pdf.patch
+prune/d-0026-font-awesome-as-a-crate-generate-SVG-data-from-pac.patch

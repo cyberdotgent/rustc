@@ -51,6 +51,8 @@ Build-Depends:
 # Extra build-deps needed for x.py to download stuff in pkg.rustc.dlstage0.
  curl <pkg.rustc.dlstage0>,
  ca-certificates <pkg.rustc.dlstage0>,
+# Needed to recreate font-awesome-as-a-crate data
+ node-fortawesome-fontawesome-free,
 Build-Depends-Indep:
  wasi-libc (>= 0.0~git20251114.ac020b8~) <!nowasm>,
  wasi-libc (<= 0.0~git20251114.ac020b8++) <!nowasm>,
