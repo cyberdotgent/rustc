@@ -1,3 +1,10 @@
+rustc (1.94.1+dfsg1-1~bpo13+1) trixie-backports; urgency=medium
+
+  * Rebuild for trixie-backports.
+  * relax libgit2 dependency
+
+ -- Fabian Grünbichler <debian@fabian.gruenbichler.email>  Fri, 10 Apr 2026 12:16:49 +0200
+
 rustc (1.94.1+dfsg1-1) unstable; urgency=medium
 
   * Upload to unstable
