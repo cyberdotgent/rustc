@@ -1,9 +1,9 @@
-rustc (1.94.1+dfsg1-1~exp1) UNRELEASED; urgency=medium
+rustc (1.94.1+dfsg1-1~exp1) experimental; urgency=medium
 
   * New upstream release
   * Update to wasi-libc 20251114.ac020b8
 
- -- Fabian Grünbichler <debian@fabian.gruenbichler.email>  Thu, 09 Apr 2026 12:50:41 +0200
+ -- Fabian Grünbichler <debian@fabian.gruenbichler.email>  Fri, 10 Apr 2026 09:15:06 +0200
 
 rustc (1.93.1+dfsg1-2) unstable; urgency=medium
 
