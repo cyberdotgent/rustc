@@ -1220,6 +1220,12 @@ Files: src/librustdoc/html/static/fonts/SourceSerif4*
 Copyright: 2014-2021 Adobe Systems Incorporated
 License: SIL-OPEN-FONT
 
+Files: vendor/alloca-0.4.0/*
+Copyright: 2021-2023 Adel Prokurov <adel.prokurov@gmail.com>
+           2021-2023 StackOverflowExcept1on
+License: MIT
+Comment: see https://github.com/playXE/alloca-rs
+
 Files: vendor/anes-*/*
 Copyright: 2019-2023 Robert Vojta <rvojta@me.com>
 License: MIT OR Apache-2.0
@@ -1416,11 +1422,6 @@ Copyright: 2023-2024 Zakarum <zaq.dev@icloud.com>
 License: MIT OR Apache-2.0
 Comment: see https://github.com/zakarumych/allocator-api2
 
-Files: vendor/ammonia-*/*
-Copyright: 2015-2018 Michael Howell <michael@notriddle.com>
-License: MIT  or  Apache-2.0
-Comment: see https://github.com/notriddle/ammonia
-
 Files: vendor/annotate-snippets-*/*
 Copyright: 2018-2020 Zibi Braniecki <gandalf@mozilla.com>
 License: Apache-2.0 or MIT
@@ -1448,8 +1449,9 @@ Comment: see https://github.com/droundy/arrayref
 Files:
  vendor/askama-0.*/*
  vendor/askama_derive-0.*/*
+ vendor/askama_macros-0.*/*
  vendor/askama_parser-0.*/*
-Copyright: 2017-2020 Dirkjan Ochtman
+Copyright: 2017-2026 Dirkjan Ochtman
 License: MIT OR Apache-2.0
 Comment: see https://github.com/askama-rs/askama
 
@@ -1753,13 +1755,6 @@ Copyright: 2015-2025 The Crossbeam Project Developers
 License: MIT or Apache-2.0
 Comment: see https://github.com/crossbeam-rs
 
-Files:
- vendor/cssparser-0.*/*
- vendor/cssparser-macros-0.*/*
-Copyright: 2013-2025 Simon Sapin <simon.sapin@exyr.org>
-License: MPL-2.0
-Comment: see https://github.com/servo/rust-cssparser
-
 Files: vendor/ct-codecs-*/*
 Copyright: 2020-2022 Frank Denis <github@pureftpd.org>
 License: MIT
@@ -1855,7 +1850,6 @@ Comment: see https://github.com/madsmtm/objc2
 Files:
  vendor/anyhow-*/*
  vendor/dissimilar-*/*
- vendor/dtoa-*/*
  vendor/itoa-*/*
  vendor/itoa-0.*/*
  vendor/quote-*/*
@@ -1867,23 +1861,16 @@ License: MIT or Apache-2.0
 Comment:
  see https://github.com/dtolnay/anyhow
  see https://github.com/dtolnay/dissimilar
- see https://github.com/dtolnay/dtoa
  see https://github.com/dtolnay/itoa
  see https://github.com/dtolnay/quote
  see https://github.com/dtolnay/syn
  see https://github.com/dtolnay/unicode-ident
-
-Files: vendor/dtoa-short-0.*/*
-Copyright: 2017-2024 Xidorn Quan <me@upsuper.org>
-License: MPL-2.0
-Comment: see https://github.com/upsuper/dtoa-short
 
 Files:
  vendor/arrayvec-*/*
  vendor/either-*/*
  vendor/itertools-*/*
  vendor/itertools-0.*/*
- vendor/maplit-*/*
  vendor/scopeguard-*/*
 Copyright: 2014-2020 bluss
 License: MIT or Apache-2.0
@@ -1892,7 +1879,6 @@ Comment:
  see https://github.com/bluss/either
  see https://github.com/bluss/arrayvec
  see https://github.com/bluss/fixedbitset
- see https://github.com/bluss/maplit
  see https://github.com/bluss/scopeguard
 
 Files:
@@ -1947,6 +1933,12 @@ Files: vendor/ed25519-compact-*/*
 Copyright: 2020-2024 Frank Denis <github@pureftpd.org>
 License: MIT
 Comment: see https://github.com/jedisct1/rust-ed25519-compact
+
+Files: vendor/ego-tree-*/*
+Copyright: 2016-2026 June McEnroe <june@causal.agency>
+           2016-2026 Carlo Federico Vescovo <vescovocarlofederico@gmail.com>
+License: ISC
+Comment: see https://github.com/rust-scraper/ego-tree
 
 Files: vendor/elasticlunr-rs-*/*
 Copyright: 2017-2018 Matt Ickstadt <mattico8@gmail.com>
@@ -2014,6 +2006,13 @@ Copyright: 2016-2018 Steven Fackler <sfackler@gmail.com>
 License: MIT or Apache-2.0
 Comment: see https://github.com/sfackler/fallible-streaming-iterator
 
+Files: vendor/fancy-regex-*/*
+Copyright: 2016-2026 Raph Levien <raph@google.com>
+           2016-2026 Robin Stocker <robin@nibor.org>
+           2016-2026 Keith Hall <keith.hall@available.systems>
+License: MIT
+Comment: see https://github.com/fancy-regex/fancy-regex
+
 Files: vendor/faster-hex-*/*
 Copyright: 2018-2023 zhangsoledad <787953403@qq.com>
 License: MIT
@@ -2059,6 +2058,16 @@ Files: vendor/foldhash-0.*/*
 Copyright: 2024-2024 Orson Peters <orsonpeters@gmail.com>
 License: Zlib
 Comment: see https://github.com/orlp/foldhash
+
+Files: vendor/font-awesome-as-a-crate-*/*
+Copyright: 2022 Fonticons, Inc. (https://fontawesome.com)
+License: CC-BY AND MIT
+Comment:
+ see https://github.com/rust-lang/docs.rs
+ .
+ This crate is pruned and patched to not bundle FontAwesome 6.x, but rebuild it
+ from the packaged version. The icon data is licensed under CC-BY (4.0), the
+ code itself under MIT. The icon SVG data contains the required attributions.
 
 Files:
  vendor/foreign-types-*/*
@@ -2155,7 +2164,6 @@ Files:
  vendor/gix-odb-*/*
  vendor/gix-pack-*/*
  vendor/gix-packetline-*/*
- vendor/gix-packetline-blocking-*/*
  vendor/gix-path-*/*
  vendor/gix-pathspec-*/*
  vendor/gix-prompt-*/*
@@ -2742,9 +2750,7 @@ Copyright: 2014-2020 Benjamin Sago <ogham@bsago.me>
 License: MIT
 Comment: see https://github.com/ogham/rust-number-prefix
 
-Files:
- vendor/objc2-*/*
- vendor/obj2c-encode-*/*
+Files: vendor/objc2-*/*
 Copyright: 2014-2026 Mads Marquart <mads@marquart.dk>
 License: MIT
 Comment: see https://github.com/madsmtm/objc2
@@ -2767,14 +2773,6 @@ Files: vendor/once_cell-*/*
 Copyright: 2018-2019 Aleksey Kladov <aleksey.kladov@gmail.com>
 License: MIT OR Apache-2.0
 Comment: see https://github.com/matklad/once_cell
-
-Files:
- vendor/onig-*/*
- vendor/onig_sys-*/*
-Copyright: 2015-2023 Will Speak <will@willspeak.me>
-           2015-2023 Ivan Ivashchenko <defuz@me.com>
-License: MIT
-Comment: see http://github.com/iwillspeak/rust-onig
 
 Files: vendor/oorandom-*/*
 Copyright: 2019-2021 Simon Heath <icefox@dreamquest.io>
@@ -2849,6 +2847,11 @@ Comment:
  see https://github.com/Amanieu/thread_local-rs
  see https://github.com/Amanieu/parking_lot
 
+Files: vendor/page_size-*/*
+Copyright: 2017-2023 Philip Woods <elzairthesorcerer@gmail.com>
+License: MIT or Apache-2.0
+Comment: see https://github.com/Elzair/page_size_rs
+
 Files: vendor/papergrid-*/*
 Copyright: 2020-2024 Maxim Zhiburt <zhiburt@gmail.com>
 License: MIT
@@ -2906,7 +2909,6 @@ Files:
  vendor/phf-*/*
  vendor/phf_codegen-*/*
  vendor/phf_generator-*/*
- vendor/phf_macros-*/*
  vendor/phf_shared-*/*
 Copyright: 2014-2025 Steven Fackler <sfackler@gmail.com>
 License: MIT
@@ -3163,11 +3165,6 @@ Copyright: 2019-2024 Moritz Borcherding <moritz.borcherding@web.de>
 License: MIT
 Comment: see https://github.com/KillingSpark/zstd-rs
 
-Files: vendor/ryu-*/*
-Copyright: 2018-2018 David Tolnay <dtolnay@gmail.com>
-License: Apache-2.0 or BSL-1.0
-Comment: see https://github.com/dtolnay/ryu
-
 Files: 
  vendor/salsa-0.*/*
  vendor/salsa-macro-rules-0.*/*
@@ -3247,11 +3244,6 @@ Files: vendor/serde-untagged-*/*
 Copyright: 2023-2024 David Tolnay <dtolnay@gmail.com>
 License: MIT OR Apache-2.0
 Comment: see https://github.com/dtolnay/serde-untagged
-
-Files: vendor/serde_urlencoded-0.*/*
-Copyright: 2016-2024 Anthony Ramine <n.oxyde@gmail.com>
-License: MIT or Apache-2.0
-Comment: see https://github.com/nox/serde_urlencoded
 
 Files: vendor/serde-value-*/*
 Copyright: 2016-2020 arcnmx
@@ -4011,6 +4003,11 @@ Copyright:
  1995-2016 International Business Machines Corporation and others.
 License: Unicode-Data-Files-and-Software-License
 Comment: See https://github.com/unicode-org/icu4x , parts adapted from ICU4C and/or ICU4J
+
+Files: vendor/zmij-*/*
+Copyright: 2025-2026 David Tolnay <dtolnay@gmail.com>
+License: MIT
+Comment: see https://github.com/dtolnay/zmij
 
 Files: debian/*
 Copyright: 2013-2018 Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>
