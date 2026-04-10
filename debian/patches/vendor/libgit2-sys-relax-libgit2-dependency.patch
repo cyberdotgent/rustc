@@ -1,0 +1,27 @@
+From: =?utf-8?q?Fabian_Gr=C3=BCnbichler?= <f.gruenbichler@proxmox.com>
+Date: Fri, 10 Apr 2026 14:29:55 +0200
+Subject: libgit2-sys: relax libgit2 dependency
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+the changes are not required for cargo.
+
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ vendor/libgit2-sys-0.18.3+1.9.2/build.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/vendor/libgit2-sys-0.18.3+1.9.2/build.rs b/vendor/libgit2-sys-0.18.3+1.9.2/build.rs
+index 356ad53..7b5a374 100644
+--- a/vendor/libgit2-sys-0.18.3+1.9.2/build.rs
++++ b/vendor/libgit2-sys-0.18.3+1.9.2/build.rs
+@@ -7,7 +7,7 @@ use std::process::Command;
+ /// Tries to use system libgit2 and emits necessary build script instructions.
+ fn try_system_libgit2() -> Result<pkg_config::Library, pkg_config::Error> {
+     let mut cfg = pkg_config::Config::new();
+-    match cfg.range_version("1.9.2".."1.10.0").probe("libgit2") {
++    match cfg.range_version("1.9.0".."1.10.0").probe("libgit2") {
+         Ok(lib) => {
+             for include in &lib.include_paths {
+                 println!("cargo:root={}", include.display());
