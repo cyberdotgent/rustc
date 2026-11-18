@@ -211,7 +211,7 @@ UPSTREAM_BIN_DIR ?= $(CURDIR)/debian/upstream-bin/dl
 UPSTREAM_BIN_NAME := rust-$(RUST_LONG_VERSION)-$(DEB_HOST_RUST_TYPE)
 ifneq (,$(filter pkg.rustc.upstream-bin,$(DEB_BUILD_PROFILES)))
   UPSTREAM_BIN := true
-  UPSTREAM_BIN_REVISION ?= 0proxport1
+  UPSTREAM_BIN_REVISION ?= 0proxport2
   UPSTREAM_BIN_VERSION := $(RUST_LONG_VERSION)+upstream-$(UPSTREAM_BIN_REVISION)
   UPSTREAM_BIN_COMPONENTS := rustc,cargo,rust-std-$(DEB_HOST_RUST_TYPE),rustfmt-preview,clippy-preview,rust-analyzer-preview
   UPSTREAM_BIN_WORK := $(CURDIR)/debian/upstream-bin/work
@@ -464,7 +464,8 @@ ifeq (, $(filter nocheck,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)))
 	mkdir "$$T/p" && cd "$$T/p" && export CARGO_HOME="$$T/ch" RUSTC="$$S/bin/rustc" RUSTDOC="$$S/bin/rustdoc"; \
 	"$$S/bin/cargo" init -q --name smoke --offline; \
 	printf '#[test]\nfn t() { assert_eq!(2 + 2, 4); }\n' >> src/main.rs; \
-	"$$S/bin/cargo" test -q --offline
+	"$$S/bin/cargo" test -q --offline; \
+	__CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS=dev "$$S/bin/cargo" -Zavoid-dev-deps test -q --offline
 endif
 else
 override_dh_auto_test-arch:
@@ -549,6 +550,11 @@ ifeq (true,$(UPSTREAM_BIN))
 	  usr/lib/rustlib/etc/gdb_* usr/lib/rustlib/etc/lldb_* \
 	  usr/lib/rustlib/$(DEB_HOST_RUST_TYPE)/bin \
 	  usr/share/doc/rust
+	# the upstream cargo binary moves to /usr/lib/cargo/bin; /usr/bin/cargo is a wrapper that
+	# selects the "dev" channel like Debian's patched cargo (see debian/upstream-bin/cargo-wrapper)
+	mkdir -p $(DEB_DESTDIR)/usr/lib/cargo/bin
+	mv $(DEB_DESTDIR)/usr/bin/cargo $(DEB_DESTDIR)/usr/lib/cargo/bin/cargo
+	install -m755 debian/upstream-bin/cargo-wrapper $(DEB_DESTDIR)/usr/bin/cargo
 else
 	DESTDIR=$(DEB_DESTDIR) $(RUSTBUILD) install $(RUSTBUILD_FLAGS)
 endif
@@ -678,6 +684,10 @@ override_dh_strip:
 
 override_dh_gencontrol:
 	dh_gencontrol -- -v$(UPSTREAM_BIN_VERSION)
+
+override_dh_install-arch:
+	dh_install -a
+	dh_install -pcargo usr/lib/cargo/bin/cargo usr/lib/cargo/bin
 else
 override_dh_dwz:
 	# otherwise rustc gets an empty multifile which lintian errors on, causing

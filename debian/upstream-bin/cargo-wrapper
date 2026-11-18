@@ -1,0 +1,11 @@
+#!/bin/sh
+# /usr/bin/cargo for build profile pkg.rustc.upstream-bin (see debian/upstream-bin/README).
+#
+# Debian's cargo always reports the "dev" release channel
+# (debian/patches/cargo/d-0012-cargo-always-return-dev-channel.patch), so -Z flags work on
+# the stable toolchain; dh-cargo's wrapper (/usr/share/cargo/bin/cargo) relies on that
+# (-Zavoid-dev-deps). The unpatched upstream binary gets the same behaviour through cargo's
+# channel override. Only cargo reads this variable; rustc stays on the stable channel.
+: "${__CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS:=dev}"
+export __CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS
+exec /usr/lib/cargo/bin/cargo "$@"

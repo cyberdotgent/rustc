@@ -42,8 +42,15 @@ What the profile does:
     rust-clippy, rust-analyzer (no docs, rust-src, wasm/bpf std, rust-gdb,
     rust-lldb, rust-llvm, rust-all)
   * does not strip/dwz the upstream binaries (shipped bit-identical)
+  * moves the cargo binary to /usr/lib/cargo/bin/cargo; /usr/bin/cargo is a
+    small wrapper (debian/upstream-bin/cargo-wrapper) that selects cargo's
+    "dev" channel like Debian's patch d-0012-cargo-always-return-dev-channel,
+    which dh-cargo needs (-Zavoid-dev-deps)
+  * known behaviour difference left alone: Debian's rustc patch
+    d-rustc-add-soname (DT_SONAME on dylib/cdylib outputs) is not in the
+    upstream binary
   * versions the binary packages <upstream>+upstream-<UPSTREAM_BIN_REVISION>
-    (default 0proxport1), e.g. 1.94.1+upstream-0proxport1: sorts above the
+    (default 0proxport2), e.g. 1.94.1+upstream-0proxport2: sorts above the
     source-built 1.94.1+dfsg1-*, below 1.94.1++ and the next release
 
 To move to a new upstream version, rebase onto the new packaging, fetch the
