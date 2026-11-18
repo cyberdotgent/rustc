@@ -13,6 +13,9 @@ from source:
 
   rust-<version>-<rust-triple>.tar.xz  (static.rust-lang.org/dist, the same
                                          bits rustup installs)
+  rust-std-<version>-wasm32-{unknown-unknown,wasip1,wasip2}.tar.xz
+                                        (wasm std for libstd-rust-dev-wasm32;
+                                         not with the nowasm profile)
 
 Without the profile, the package builds exactly as before.
 
@@ -26,21 +29,28 @@ Usage:
 
 What the profile does:
 
-  * verifies the tarball's sha256 against debian/upstream-bin/SHA256SUMS
+  * verifies each tarball's sha256 against debian/upstream-bin/SHA256SUMS
     (pinned here; cross-checked against the GPG-signed
     channel-rust-<version>.toml when added) and its detached GPG signature
     against the Rust release key in debian/upstream/signing-key.asc (gpgv;
     sqv rejects the key's SHA-1 binding signatures)
   * runs the upstream install.sh (components rustc, cargo, rust-std,
     rustfmt, clippy, rust-analyzer) into a staging tree, smoke-tests it
-    (rustc/cargo versions, hello world, cargo test), then applies the same
+    (rustc/cargo versions, hello world, cargo test, a wasm32 cdylib), then applies the same
     post-install layout as the source build (librustc_driver etc. in
     /usr/lib/<multiarch>, no libstd dylib) and the normal *.install files,
     so Debian's glue (/usr/share/cargo/bin/cargo, /usr/share/cargo/scripts,
     /usr/share/rustc/architecture.mk) is included
   * builds only rustc, cargo, libstd-rust-<ver>, libstd-rust-dev, rustfmt,
-    rust-clippy, rust-analyzer (no docs, rust-src, wasm/bpf std, rust-gdb,
-    rust-lldb, rust-llvm, rust-all)
+    rust-clippy, rust-analyzer, libstd-rust-dev-wasm32 (arch all) and
+    rust-llvm (no docs, rust-src, bpf std, rust-gdb, rust-lldb, rust-all)
+  * rust-llvm: Debian's package only has symlinks to lld-21/clang-21/llvm-21,
+    which aren't packaged for every architecture (trixie has none). Instead it
+    carries the upstream release's rust-lld, gcc-ld/ wrappers,
+    wasm-component-ld and rust-objcopy in /usr/lib/rustlib/<triple>/bin
+    (built from the same LLVM as rustc) and /usr/bin/rust-lld -> that
+    rust-lld (wasm builds use linker=rust-lld); its Depends on the LLVM 21
+    packages is dropped (no rust-clang/rust-llvm-dwp/llvm-cov links)
   * does not strip/dwz the upstream binaries (shipped bit-identical)
   * moves the cargo binary to /usr/lib/cargo/bin/cargo; /usr/bin/cargo is a
     small wrapper (debian/upstream-bin/cargo-wrapper) that selects cargo's
@@ -50,7 +60,7 @@ What the profile does:
     d-rustc-add-soname (DT_SONAME on dylib/cdylib outputs) is not in the
     upstream binary
   * versions the binary packages <upstream>+upstream-<UPSTREAM_BIN_REVISION>
-    (default 0proxport2), e.g. 1.94.1+upstream-0proxport2: sorts above the
+    (default 0proxport3), e.g. 1.94.1+upstream-0proxport3: sorts above the
     source-built 1.94.1+dfsg1-*, below 1.94.1++ and the next release
 
 To move to a new upstream version, rebase onto the new packaging, fetch the

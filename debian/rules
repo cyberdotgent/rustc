@@ -211,12 +211,19 @@ UPSTREAM_BIN_DIR ?= $(CURDIR)/debian/upstream-bin/dl
 UPSTREAM_BIN_NAME := rust-$(RUST_LONG_VERSION)-$(DEB_HOST_RUST_TYPE)
 ifneq (,$(filter pkg.rustc.upstream-bin,$(DEB_BUILD_PROFILES)))
   UPSTREAM_BIN := true
-  UPSTREAM_BIN_REVISION ?= 0proxport2
+  UPSTREAM_BIN_REVISION ?= 0proxport3
   UPSTREAM_BIN_VERSION := $(RUST_LONG_VERSION)+upstream-$(UPSTREAM_BIN_REVISION)
   UPSTREAM_BIN_COMPONENTS := rustc,cargo,rust-std-$(DEB_HOST_RUST_TYPE),rustfmt-preview,clippy-preview,rust-analyzer-preview
   UPSTREAM_BIN_WORK := $(CURDIR)/debian/upstream-bin/work
   UPSTREAM_BIN_STAGE := $(CURDIR)/debian/upstream-bin/stage
-  # only arch-dependent packages from the binary release: no docs/wasm/bpf/rust-src
+  # libstd-rust-dev-wasm32 (arch all) from the upstream rust-std tarballs of the wasm targets
+  # (target code, identical for every host); none with the nowasm profile
+  UPSTREAM_BIN_WASM_TARGETS := wasm32-unknown-unknown wasm32-wasip1 wasm32-wasip2
+  ifneq (,$(findstring nowasm,$(DEB_BUILD_PROFILES)))
+    UPSTREAM_BIN_WASM_TARGETS :=
+  endif
+  UPSTREAM_BIN_TARBALLS := $(UPSTREAM_BIN_NAME) $(UPSTREAM_BIN_WASM_TARGETS:%=rust-std-$(RUST_LONG_VERSION)-%)
+  # no source build: no docs/bpf/rust-src; the wasm std comes from the tarballs above
   BUILD_DOCS := false
   BUILD_WASM := false
   BUILD_BPF := false
@@ -310,17 +317,21 @@ debian/extra-vendor.stamp:
 
 ifeq (true,$(UPSTREAM_BIN))
 debian/dh_auto_configure.stamp:
-	# verify the upstream binary release: pinned sha256 + upstream GPG signature
-	test -f "$(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz" || { \
-	  echo "missing $(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz, run 'debian/rules upstream-bin-fetch'"; exit 1; }
-	grep -q " $(UPSTREAM_BIN_NAME).tar.xz$$" debian/upstream-bin/SHA256SUMS
-	cd "$(UPSTREAM_BIN_DIR)" && grep " $(UPSTREAM_BIN_NAME).tar.xz$$" $(CURDIR)/debian/upstream-bin/SHA256SUMS | sha256sum --strict -c -
+	# verify the upstream release tarballs: pinned sha256 + upstream GPG signature
 	set -e; k=$$(mktemp); trap 'rm -f "$$k"' EXIT; \
 	sed -e '1,/^$$/d' -e '/^=/,$$d' debian/upstream/signing-key.asc | base64 -d > "$$k"; \
-	gpgv --keyring "$$k" "$(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz.asc" "$(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz"
+	for t in $(UPSTREAM_BIN_TARBALLS); do \
+	  test -f "$(UPSTREAM_BIN_DIR)/$$t.tar.xz" || { \
+	    echo "missing $(UPSTREAM_BIN_DIR)/$$t.tar.xz, run 'debian/rules upstream-bin-fetch'"; exit 1; }; \
+	  grep -q " $$t.tar.xz$$" debian/upstream-bin/SHA256SUMS; \
+	  (cd "$(UPSTREAM_BIN_DIR)" && grep " $$t.tar.xz$$" $(CURDIR)/debian/upstream-bin/SHA256SUMS | sha256sum --strict -c -); \
+	  gpgv --keyring "$$k" "$(UPSTREAM_BIN_DIR)/$$t.tar.xz.asc" "$(UPSTREAM_BIN_DIR)/$$t.tar.xz"; \
+	done
 	$(RM) -r debian/upstream-bin/work && mkdir -p debian/upstream-bin/work
-	tar -C debian/upstream-bin/work -xJf "$(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz"
-	grep -q "^$(RUST_LONG_VERSION) " "$(UPSTREAM_BIN_WORK)/$(UPSTREAM_BIN_NAME)/version"
+	set -e; for t in $(UPSTREAM_BIN_TARBALLS); do \
+	  tar -C debian/upstream-bin/work -xJf "$(UPSTREAM_BIN_DIR)/$$t.tar.xz"; \
+	  grep -q "^$(RUST_LONG_VERSION) " "$(UPSTREAM_BIN_WORK)/$$t/version"; \
+	done
 	touch "$@"
 else
 debian/dh_auto_configure.stamp: debian/config.toml debian/check-no-old-llvm.stamp debian/extra-vendor.stamp
@@ -404,6 +415,13 @@ ifeq (true,$(BUILD_WINDOWS))
 endif
 
 override_dh_auto_build-indep: debian/dh_auto_build.stamp
+ifeq (true,$(UPSTREAM_BIN))
+	# libstd-rust-dev-wasm32: add the wasm targets' upstream rust-std to the staging tree
+	set -e; for t in $(UPSTREAM_BIN_WASM_TARGETS); do \
+	  (cd "$(UPSTREAM_BIN_WORK)/rust-std-$(RUST_LONG_VERSION)-$$t" && sh install.sh --prefix=/usr \
+	    --destdir="$(UPSTREAM_BIN_STAGE)" --disable-ldconfig --components=rust-std-$$t); \
+	done
+endif
 ifeq (true,$(BUILD_WASM))
 	debian/scripts/build-wit-bindgen.sh 0.45.1
 	debian/scripts/build-wit-bindgen.sh 0.46.0
@@ -516,6 +534,14 @@ endif
 override_dh_auto_test-indep:
 ifeq (, $(filter nocheck,$(DEB_BUILD_PROFILES)))
 ifeq (, $(filter nocheck,$(DEB_BUILD_OPTIONS)))
+ifneq (,$(filter wasm32-unknown-unknown,$(UPSTREAM_BIN_WASM_TARGETS)))
+	# smoke test of the staged wasm32-unknown-unknown std: a cdylib, linked by the bundled rust-lld
+	set -e; S="$(UPSTREAM_BIN_STAGE)/usr"; T=$$(mktemp -d); trap 'rm -r "$$T"' EXIT; \
+	export LD_LIBRARY_PATH="$$S/lib"; \
+	printf '#[unsafe(no_mangle)]\npub extern "C" fn add(a: i32, b: i32) -> i32 { let v: Vec<i32> = vec![a, b]; v.iter().sum() }\n' > "$$T/lib.rs"; \
+	"$$S/bin/rustc" --edition 2024 -O --target wasm32-unknown-unknown --crate-type cdylib -o "$$T/lib.wasm" "$$T/lib.rs"; \
+	head -c4 "$$T/lib.wasm" | od -An -c | grep -q 'a   s   m'
+endif
 ifeq (true,$(BUILD_WASM))
 	# Ignore failures in these tests, but run them so we see what it's like
 	-PATH=$(CURDIR)/debian/bin:$(PATH) $(RUSTBUILD_TEST) $(RUSTBUILD_FLAGS) $(RUSTBUILD_TEST_FLAGS) \
@@ -545,10 +571,10 @@ ifeq (true,$(UPSTREAM_BIN))
 	# install.sh puts sysconfdir under the prefix (and ignores destdir for an absolute one)
 	mv $(DEB_DESTDIR)/usr/etc $(DEB_DESTDIR)/etc
 	# parts of the binary release that belong to packages not built with this profile
-	# (rust-gdb, rust-lldb, rust-llvm, rust-doc) or that Debian doesn't ship (bundled lld)
+	# (rust-gdb, rust-lldb, rust-doc). usr/lib/rustlib/<host>/bin (rust-lld, gcc-ld/,
+	# wasm-component-ld, rust-objcopy) goes into rust-llvm, see override_dh_install-arch
 	cd $(DEB_DESTDIR) && $(RM) -r usr/bin/rust-gdb usr/bin/rust-gdbgui usr/bin/rust-lldb \
 	  usr/lib/rustlib/etc/gdb_* usr/lib/rustlib/etc/lldb_* \
-	  usr/lib/rustlib/$(DEB_HOST_RUST_TYPE)/bin \
 	  usr/share/doc/rust
 	# the upstream cargo binary moves to /usr/lib/cargo/bin; /usr/bin/cargo is a wrapper that
 	# selects the "dev" channel like Debian's patched cargo (see debian/upstream-bin/cargo-wrapper)
@@ -633,6 +659,10 @@ endif
 	rm -vf $(CURDIR)/debian/cargo/.global-cache
 
 
+ifeq (true,$(UPSTREAM_BIN))
+override_dh_install-indep:
+	dh_install -i
+else
 override_dh_install-indep:
 	dh_install
 	$(RM) -rf $(SRC_CLEAN:%=debian/rust-src/usr/src/rustc-$(RUST_LONG_VERSION)/%)
@@ -653,6 +683,7 @@ override_dh_install-indep:
 	$(RM) -rf debian/rust-src/usr/src/rustc-*/vendor/kuchiki-*/docs/*.html
 	$(RM) -rf debian/rust-src/usr/src/rustc-*/vendor/url-*/docs/*.html
 	$(RM) -rf debian/rust-src/usr/src/rustc-*/vendor/xz2-*/.gitmodules
+endif
 
 override_dh_installchangelogs:
 	dh_installchangelogs RELEASES.md
@@ -682,12 +713,29 @@ ifeq (true,$(UPSTREAM_BIN))
 override_dh_dwz:
 override_dh_strip:
 
+# rust-llvm: LLVM 21 (lld-21, clang-21, llvm-21) isn't packaged for every architecture (trixie
+# has none; Proxmox builds it for amd64), so instead of Debian's symlinks to those packages it
+# carries the linker bits of the upstream release (built from the same LLVM as rustc): rust-lld,
+# the gcc-ld/ wrappers, wasm-component-ld, rust-objcopy, and /usr/bin/rust-lld (wasm builds use
+# linker=rust-lld). Its Depends on the LLVM 21 packages is dropped.
 override_dh_gencontrol:
-	dh_gencontrol -- -v$(UPSTREAM_BIN_VERSION)
+	dh_gencontrol -Nrust-llvm -- -v$(UPSTREAM_BIN_VERSION)
+	dh_gencontrol -prust-llvm -- -v$(UPSTREAM_BIN_VERSION) '-DDepends=$${shlibs:Depends}, $${misc:Depends}'
 
 override_dh_install-arch:
 	dh_install -a
 	dh_install -pcargo usr/lib/cargo/bin/cargo usr/lib/cargo/bin
+	dh_install -prust-llvm usr/lib/rustlib/$(DEB_HOST_RUST_TYPE)/bin/rust-lld \
+	  usr/lib/rustlib/$(DEB_HOST_RUST_TYPE)/bin/rust-objcopy \
+	  usr/lib/rustlib/$(DEB_HOST_RUST_TYPE)/bin/gcc-ld \
+	  usr/lib/rustlib/$(DEB_HOST_RUST_TYPE)/bin
+
+override_dh_link:
+	dh_link -Nrust-llvm
+	set -e; if [ -d debian/rust-llvm ]; then \
+	  mkdir -p debian/rust-llvm/usr/bin; \
+	  ln -sf ../lib/rustlib/$(DEB_HOST_RUST_TYPE)/bin/rust-lld debian/rust-llvm/usr/bin/rust-lld; \
+	fi
 else
 override_dh_dwz:
 	# otherwise rustc gets an empty multifile which lintian errors on, causing
@@ -715,7 +763,7 @@ override_dh_shlibdeps:
 # run before the build, verification happens in the build itself)
 upstream-bin-fetch:
 	mkdir -p "$(UPSTREAM_BIN_DIR)"
-	cd "$(UPSTREAM_BIN_DIR)" && for f in $(UPSTREAM_BIN_NAME).tar.xz $(UPSTREAM_BIN_NAME).tar.xz.asc; do \
+	cd "$(UPSTREAM_BIN_DIR)" && for f in $(foreach t,$(UPSTREAM_BIN_TARBALLS),$(t).tar.xz $(t).tar.xz.asc); do \
 	  test -s "$$f" || { curl -fsSLo "$$f.tmp" "https://static.rust-lang.org/dist/$$f" || \
 	    wget -qO "$$f.tmp" "https://static.rust-lang.org/dist/$$f"; } && mv "$$f.tmp" "$$f" || exit 1; \
 	done

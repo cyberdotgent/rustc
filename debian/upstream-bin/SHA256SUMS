@@ -1,1 +1,4 @@
 0214b912f36fd72c769aa67f7cd844d500bdf2f9dcd1955e5e8bcea6b8cce955  rust-1.94.1-s390x-unknown-linux-gnu.tar.xz
+26b8953083b942aeaf870de742962e4ba17c0da2095725fbf4ab5ab85a4d5fd5  rust-std-1.94.1-wasm32-unknown-unknown.tar.xz
+3d5073709bca32de85852e52c24e85e93574af59ddcc7fc7c56132de6c07a3cf  rust-std-1.94.1-wasm32-wasip1.tar.xz
+03c9420e4912588aeb794eda297adbaa77385dea25ee5694c322f98d4781f569  rust-std-1.94.1-wasm32-wasip2.tar.xz

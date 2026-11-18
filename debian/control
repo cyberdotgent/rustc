@@ -180,7 +180,7 @@ Recommends:
 Suggests:
 # nodejs contains wasi-node for running the program
  nodejs (>= 12.16),
-Build-Profiles: <!nowasm !pkg.rustc.upstream-bin>
+Build-Profiles: <!nowasm>
 Description: Rust standard libraries - development files
  Rust is a curly-brace, block-structured expression language.  It
  visually resembles the C language family, but differs significantly
@@ -269,7 +269,6 @@ Description: Rust debugger (lldb)
 
 Package: rust-llvm
 Architecture: any
-Build-Profiles: <!pkg.rustc.upstream-bin>
 Breaks:
  rustc (<< 1.71.1+dfsg1-1~exp1),
  rustc-web (<< 1.71.1+dfsg1-1~exp1),
