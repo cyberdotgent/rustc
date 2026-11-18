@@ -1,0 +1,51 @@
+Build profile pkg.rustc.upstream-bin
+====================================
+
+Not part of Debian or Proxmox: carried by the s390x port of Proxmox VE
+(https://github.com/cyberdotgent/rustc, branch s390x/upstream-bin).
+
+Proxmox's Rust pipeline (debcargo, dh-cargo, librust-*-dev, offline builds
+against /usr/share/cargo/registry) needs the Debian toolchain packages (rustc,
+cargo, libstd-rust-dev, ...) installed as dpkg-owned files in Debian paths.
+For architectures where no such packages exist at the required version, this
+profile repackages the official upstream binary release instead of building
+from source:
+
+  rust-<version>-<rust-triple>.tar.xz  (static.rust-lang.org/dist, the same
+                                         bits rustup installs)
+
+Without the profile, the package builds exactly as before.
+
+Usage:
+
+  export DEB_BUILD_PROFILES=pkg.rustc.upstream-bin
+  # optional: where the tarball + .asc live (default debian/upstream-bin/dl)
+  export UPSTREAM_BIN_DIR=/path/to/cache
+  debian/rules upstream-bin-fetch      # needs network; skips existing files
+  dpkg-buildpackage -b -us -uc
+
+What the profile does:
+
+  * verifies the tarball's sha256 against debian/upstream-bin/SHA256SUMS
+    (pinned here; cross-checked against the GPG-signed
+    channel-rust-<version>.toml when added) and its detached GPG signature
+    against the Rust release key in debian/upstream/signing-key.asc (gpgv;
+    sqv rejects the key's SHA-1 binding signatures)
+  * runs the upstream install.sh (components rustc, cargo, rust-std,
+    rustfmt, clippy, rust-analyzer) into a staging tree, smoke-tests it
+    (rustc/cargo versions, hello world, cargo test), then applies the same
+    post-install layout as the source build (librustc_driver etc. in
+    /usr/lib/<multiarch>, no libstd dylib) and the normal *.install files,
+    so Debian's glue (/usr/share/cargo/bin/cargo, /usr/share/cargo/scripts,
+    /usr/share/rustc/architecture.mk) is included
+  * builds only rustc, cargo, libstd-rust-<ver>, libstd-rust-dev, rustfmt,
+    rust-clippy, rust-analyzer (no docs, rust-src, wasm/bpf std, rust-gdb,
+    rust-lldb, rust-llvm, rust-all)
+  * does not strip/dwz the upstream binaries (shipped bit-identical)
+  * versions the binary packages <upstream>+upstream-<UPSTREAM_BIN_REVISION>
+    (default 0proxport1), e.g. 1.94.1+upstream-0proxport1: sorts above the
+    source-built 1.94.1+dfsg1-*, below 1.94.1++ and the next release
+
+To move to a new upstream version, rebase onto the new packaging, fetch the
+new tarball, verify it (gpgv + signed channel manifest) and update
+SHA256SUMS.

@@ -197,6 +197,32 @@ ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
   MAKE_OPTIMISATIONS := false
 endif
 
+# Build profile pkg.rustc.upstream-bin (s390x port, not Debian/Proxmox): don't build
+# from source, repackage the official upstream binary release
+# rust-$(RUST_LONG_VERSION)-$(DEB_HOST_RUST_TYPE).tar.xz (the bits rustup installs) into the
+# usual Debian packages and paths. The tarball is not downloaded during the build; fetch it
+# beforehand with `debian/rules upstream-bin-fetch` (or put it into UPSTREAM_BIN_DIR). The
+# build verifies its sha256 against debian/upstream-bin/SHA256SUMS and the upstream GPG
+# signature (.asc) against debian/upstream/signing-key.asc. Binary packages get version
+# UPSTREAM_BIN_VERSION, which sorts above the source-built $(DEB_VERSION_UPSTREAM)-* and below
+# the next upstream release. See debian/upstream-bin/README.
+UPSTREAM_BIN := false
+UPSTREAM_BIN_DIR ?= $(CURDIR)/debian/upstream-bin/dl
+UPSTREAM_BIN_NAME := rust-$(RUST_LONG_VERSION)-$(DEB_HOST_RUST_TYPE)
+ifneq (,$(filter pkg.rustc.upstream-bin,$(DEB_BUILD_PROFILES)))
+  UPSTREAM_BIN := true
+  UPSTREAM_BIN_REVISION ?= 0proxport1
+  UPSTREAM_BIN_VERSION := $(RUST_LONG_VERSION)+upstream-$(UPSTREAM_BIN_REVISION)
+  UPSTREAM_BIN_COMPONENTS := rustc,cargo,rust-std-$(DEB_HOST_RUST_TYPE),rustfmt-preview,clippy-preview,rust-analyzer-preview
+  UPSTREAM_BIN_WORK := $(CURDIR)/debian/upstream-bin/work
+  UPSTREAM_BIN_STAGE := $(CURDIR)/debian/upstream-bin/stage
+  # only arch-dependent packages from the binary release: no docs/wasm/bpf/rust-src
+  BUILD_DOCS := false
+  BUILD_WASM := false
+  BUILD_BPF := false
+  BUILD_WINDOWS := false
+endif
+
 VERBOSITY_SUB := $(words $(filter terse,$(DEB_BUILD_OPTIONS)))
 VERBOSITY_ADD := $(words $(filter verbose,$(DEB_BUILD_OPTIONS)))
 VERBOSITY := $(shell expr 2 + $(VERBOSITY_ADD) - $(VERBOSITY_SUB))
@@ -282,6 +308,21 @@ debian/extra-vendor.stamp:
 	fi
 	touch "$@"
 
+ifeq (true,$(UPSTREAM_BIN))
+debian/dh_auto_configure.stamp:
+	# verify the upstream binary release: pinned sha256 + upstream GPG signature
+	test -f "$(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz" || { \
+	  echo "missing $(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz, run 'debian/rules upstream-bin-fetch'"; exit 1; }
+	grep -q " $(UPSTREAM_BIN_NAME).tar.xz$$" debian/upstream-bin/SHA256SUMS
+	cd "$(UPSTREAM_BIN_DIR)" && grep " $(UPSTREAM_BIN_NAME).tar.xz$$" $(CURDIR)/debian/upstream-bin/SHA256SUMS | sha256sum --strict -c -
+	set -e; k=$$(mktemp); trap 'rm -f "$$k"' EXIT; \
+	sed -e '1,/^$$/d' -e '/^=/,$$d' debian/upstream/signing-key.asc | base64 -d > "$$k"; \
+	gpgv --keyring "$$k" "$(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz.asc" "$(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz"
+	$(RM) -r debian/upstream-bin/work && mkdir -p debian/upstream-bin/work
+	tar -C debian/upstream-bin/work -xJf "$(UPSTREAM_BIN_DIR)/$(UPSTREAM_BIN_NAME).tar.xz"
+	grep -q "^$(RUST_LONG_VERSION) " "$(UPSTREAM_BIN_WORK)/$(UPSTREAM_BIN_NAME)/version"
+	touch "$@"
+else
 debian/dh_auto_configure.stamp: debian/config.toml debian/check-no-old-llvm.stamp debian/extra-vendor.stamp
 	# fail the build if we accidentally vendored openssl, indicates we pulled in unnecessary dependencies
 	test ! -e vendor/openssl-src-*
@@ -305,6 +346,7 @@ debian/dh_auto_configure.stamp: debian/config.toml debian/check-no-old-llvm.stam
 	# We don't run ./configure because we use debian/config.toml directly
 	ln -sf debian/config.toml bootstrap.toml
 	touch "$@"
+endif
 
 override_dh_auto_configure-arch: debian/dh_auto_configure.stamp
 override_dh_auto_configure-indep: debian/dh_auto_configure.stamp
@@ -325,6 +367,7 @@ override_dh_auto_clean:
 	  done; \
 	fi
 	$(RM) -rf build tmp debian/cargo_home config.stamp config.mk Makefile
+	$(RM) -r debian/upstream-bin/work debian/upstream-bin/stage
 	$(RM) -rf $(TEST_LOG) debian/config.toml debian/*.stamp
 	$(RM) -rf $(SRC_CLEAN) bootstrap.toml
 	# keep in sync with d/prune-unused-deps
@@ -340,8 +383,17 @@ override_dh_auto_clean:
 	rm -f vendor/wit-bindgen-*/src/rt/libwit_bindgen_cabi.a
 
 
+ifeq (true,$(UPSTREAM_BIN))
+debian/dh_auto_build.stamp:
+	# "build" = run the upstream installer into a staging tree (tested in dh_auto_test)
+	$(RM) -r debian/upstream-bin/stage
+	cd "$(UPSTREAM_BIN_WORK)/$(UPSTREAM_BIN_NAME)" && sh install.sh --prefix=/usr \
+	  --destdir="$(UPSTREAM_BIN_STAGE)" --disable-ldconfig --components=$(UPSTREAM_BIN_COMPONENTS)
+	touch "$@"
+else
 debian/dh_auto_build.stamp:
 	$(RUSTBUILD) build $(RUSTBUILD_FLAGS)
+endif
 
 override_dh_auto_build-arch: debian/dh_auto_build.stamp
 ifeq (true,$(BUILD_WINDOWS))
@@ -397,6 +449,24 @@ FAILED_TEST_COMMANDS = grep "^[0-9]\+ command(s) did not execute successfully" $
 ifneq (,$(filter $(DEB_BUILD_ARCH), armhf))
   FAILED_TESTS += | grep -v '^test \[debuginfo-gdb\] src/test/debuginfo/'
 endif
+ifeq (true,$(UPSTREAM_BIN))
+override_dh_auto_test-arch:
+ifeq (, $(filter nocheck,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)))
+	# smoke test of the staged upstream toolchain: versions, hello world, cargo test
+	set -e; S="$(UPSTREAM_BIN_STAGE)/usr"; T=$$(mktemp -d); trap 'rm -r "$$T"' EXIT; \
+	export LD_LIBRARY_PATH="$$S/lib"; \
+	"$$S/bin/rustc" -vV | tee "$$T/vv"; grep -qx "release: $(RUST_LONG_VERSION)" "$$T/vv"; \
+	grep -qx "host: $(DEB_HOST_RUST_TYPE)" "$$T/vv"; \
+	"$$S/bin/cargo" -V | grep -q "^cargo $(RUST_LONG_VERSION) "; \
+	"$$S/bin/rustdoc" -V; "$$S/bin/rustfmt" -V; "$$S/bin/clippy-driver" -V; \
+	printf 'fn main() { println!("hello {}", std::env::consts::ARCH); }\n' > "$$T/hello.rs"; \
+	"$$S/bin/rustc" -O -o "$$T/hello" "$$T/hello.rs"; "$$T/hello" | grep -qx "hello $(DEB_HOST_GNU_CPU)"; \
+	mkdir "$$T/p" && cd "$$T/p" && export CARGO_HOME="$$T/ch" RUSTC="$$S/bin/rustc" RUSTDOC="$$S/bin/rustdoc"; \
+	"$$S/bin/cargo" init -q --name smoke --offline; \
+	printf '#[test]\nfn t() { assert_eq!(2 + 2, 4); }\n' >> src/main.rs; \
+	"$$S/bin/cargo" test -q --offline
+endif
+else
 override_dh_auto_test-arch:
 	# ensure that rustc_llvm is actually dynamically linked to libLLVM
 	set -e; find build/*/stage2/lib/rustlib/* -name '*rustc_llvm*.so' | \
@@ -440,6 +510,7 @@ else
 endif
 endif
 endif
+endif
 
 override_dh_auto_test-indep:
 ifeq (, $(filter nocheck,$(DEB_BUILD_PROFILES)))
@@ -467,7 +538,20 @@ override_dh_prep:
 	$(RM) -f debian/dh_auto_install.stamp
 
 debian/dh_auto_install.stamp:
+ifeq (true,$(UPSTREAM_BIN))
+	mkdir -p $(DEB_DESTDIR)
+	cp -a "$(UPSTREAM_BIN_STAGE)/." $(DEB_DESTDIR)/
+	# install.sh puts sysconfdir under the prefix (and ignores destdir for an absolute one)
+	mv $(DEB_DESTDIR)/usr/etc $(DEB_DESTDIR)/etc
+	# parts of the binary release that belong to packages not built with this profile
+	# (rust-gdb, rust-lldb, rust-llvm, rust-doc) or that Debian doesn't ship (bundled lld)
+	cd $(DEB_DESTDIR) && $(RM) -r usr/bin/rust-gdb usr/bin/rust-gdbgui usr/bin/rust-lldb \
+	  usr/lib/rustlib/etc/gdb_* usr/lib/rustlib/etc/lldb_* \
+	  usr/lib/rustlib/$(DEB_HOST_RUST_TYPE)/bin \
+	  usr/share/doc/rust
+else
 	DESTDIR=$(DEB_DESTDIR) $(RUSTBUILD) install $(RUSTBUILD_FLAGS)
+endif
 
 	mkdir -p $(DEB_DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/
 	mv $(DEB_DESTDIR)/usr/lib/lib*.so $(DEB_DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/
@@ -587,11 +671,20 @@ override_dh_compress:
 #	dh_strip -v
 #	find debian/libstd-rust-dev*/ -name '*.rlib.a' -execdir sh -c 'mv "$$1" "$${1%.a}"' - '{}' \;
 
+ifeq (true,$(UPSTREAM_BIN))
+# ship the upstream binaries bit-identical (no strip, no dwz, no dbgsym)
+override_dh_dwz:
+override_dh_strip:
+
+override_dh_gencontrol:
+	dh_gencontrol -- -v$(UPSTREAM_BIN_VERSION)
+else
 override_dh_dwz:
 	# otherwise rustc gets an empty multifile which lintian errors on, causing
 	# FTP auto-reject. this is a work-around, the lintian bug is #955752
 	# double up the max entries count, else the build might fail..
 	dh_dwz --no-dwz-multifile -- -L 100000000
+endif
 
 override_dh_makeshlibs:
 	dh_makeshlibs -V -N $(LIBSTD_PKG)
@@ -607,6 +700,15 @@ override_dh_makeshlibs:
 
 override_dh_shlibdeps:
 	dh_shlibdeps -- -x$(LIBSTD_PKG)
+
+# pkg.rustc.upstream-bin: download the upstream binary release + signature (needs network;
+# run before the build, verification happens in the build itself)
+upstream-bin-fetch:
+	mkdir -p "$(UPSTREAM_BIN_DIR)"
+	cd "$(UPSTREAM_BIN_DIR)" && for f in $(UPSTREAM_BIN_NAME).tar.xz $(UPSTREAM_BIN_NAME).tar.xz.asc; do \
+	  test -s "$$f" || { curl -fsSLo "$$f.tmp" "https://static.rust-lang.org/dist/$$f" || \
+	    wget -qO "$$f.tmp" "https://static.rust-lang.org/dist/$$f"; } && mv "$$f.tmp" "$$f" || exit 1; \
+	done
 
 QUILT_SPECIAL_SNOWFLAKE_RETURN_CODE = x=$$?; if [ $$x = 2 ]; then exit 0; else exit $$x; fi
 source_orig-stage0:
